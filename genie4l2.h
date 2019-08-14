@@ -3,19 +3,31 @@
 #include <vector>
 #include <memory>
 #include "projection.h"
-
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
 
 //pure declearation
 //to achieve better seperated compilation of cuda and c++
 namespace genie
 {
     class ExecutionPolicy;
-    class InvertedTable;
 
 	namespace query {struct NewQuery;}
 	namespace table {struct InvertedTable;}
 }
 
+namespace boost {
+namespace archive {
+
+class polymorphic_iarchive;
+class polymorphic_oarchive;
+
+} // namespace archive
+} // namespace boost
 
 class GenieBucketer
 {
@@ -29,7 +41,11 @@ public:
     std::shared_ptr<genie::ExecutionPolicy> get_genie_policy();
 
     std::shared_ptr<genie::table::InvertedTable> invTable;
+    // std::shared_ptr<genie::table::inv_list> invTable;
     std::shared_ptr<genie::ExecutionPolicy> geniePolicy;
+
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int version);
 
     int topk;
     int queryPerBatch;
@@ -43,7 +59,7 @@ class Genie4l2
 public:
     Genie4l2(int dataDim, int nLines, double radius, int topk, int queryPerBatch, int GPUID) 
         :dataDim(dataDim), nLines(nLines), radius(radius), topk(topk), 
-        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, nLines, radius), bucketer(3*topk, queryPerBatch, GPUID, nLines)
+        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, nLines, radius), bucketer(3*topk+100, queryPerBatch, GPUID, nLines)
     {
     }
     ~Genie4l2()
@@ -78,7 +94,15 @@ public:
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
+        ar & dataDim;
+        ar & nLines;
+        ar & radius;
+        ar & topk;
+        ar & queryPerBatch;
+        ar & GPUID;
         ar & hasher;
+        ar & hashSigs;
+        ar & bucketer;
     }
 
 private:

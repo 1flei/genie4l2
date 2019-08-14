@@ -4,6 +4,9 @@
 #include "projection.h"
 #include "genie4l2.h"
 #include "util.h"
+#include <fstream>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 
 using namespace std;
 using namespace boost::program_options;
@@ -70,7 +73,7 @@ int read_ground_truth(				// read ground truth results from disk
 int main(int argc, char **argv)
 {
     int n, qn, d, nLines, K, queryPerBatch, GPUID;
-	string datasetFilename, queryFilename, weightFilename, groundtruthFilename, outputFilename;
+	string datasetFilename, queryFilename, weightFilename, groundtruthFilename, outputFilename, indexFilename;
     double r;
 
 	// srand(time(NULL));
@@ -98,6 +101,7 @@ int main(int argc, char **argv)
 		("queryset_filename,Q", value(&queryFilename)->required(), "path to query filename")
 		("ground_truth_filename,G", value(&groundtruthFilename)->required(), "path to ground truth filename")
 		("output_filename,O", value(&outputFilename)->default_value("output.txt"), "output folder path (with / at the end) or output filename")
+        ("index_filename,I", value(&indexFilename)->default_value("index.dat"), "built index")
     ;
 
     variables_map vm;
@@ -150,13 +154,20 @@ int main(int argc, char **argv)
 
 
     Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
-    index.build(data);
+    std::fstream fs(indexFilename, ios_base::out | ios_base::in);
+
+    if(fs.is_open()) {
+        boost::archive::binary_iarchive ia(fs);
+        ia & index;
+    } else{
+        index.build(data);
+    }
     
     std::vector<std::vector<double> > ress(qn);
     const auto& scanner = [&](int qid, int candidateId){
         double dist = calc_l2_dist(d, &data[candidateId][0], &queries[qid][0]);
         ress[qid].push_back(dist);
-        printf("%d, %d, %f\n", qid, candidateId, dist);
+        // printf("%d, %d, %f\n", qid, candidateId, dist);
     };
     index.query(queries, scanner);
 
@@ -167,10 +178,23 @@ int main(int argc, char **argv)
         for(int j=0;j<K;j++){
             gti.push_back(results[i][j].key_);
         }
+        std::sort(ress[i].begin(), ress[i].end());
+        std::sort(gti.begin(), gti.end());
+
+        printf("res=%f, %f, gt=%f, %f\n", ress[i][K/2], ress[i][K-1], gti[K/2], gti[K-1]);
+
         avg_recall += calc_recall(ress[i], gti);
     }
     avg_recall /= qn;
 
     printf("avg-recall = %f\n", avg_recall);
+
+
+    if(!fs.is_open()) {
+        fs.open(indexFilename, ios_base::out);
+        boost::archive::binary_oarchive oa(fs);
+        oa & index;
+    }
+
     return 0;
 }

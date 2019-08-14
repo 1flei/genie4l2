@@ -46,3 +46,28 @@ std::vector<std::vector<int> > GenieBucketer::batch_query(const std::vector<std:
     return ret;
 }
 
+
+
+template<class Archive>
+void GenieBucketer::serialize(Archive & ar, const unsigned int version)
+{
+    ar & topk;
+    ar & queryPerBatch;
+    ar & GPUID;
+    ar & sigDim;
+    if(Archive::is_loading::value){
+        geniePolicy = get_genie_policy();
+    }
+    ar & invTable;
+}
+
+// Explicit template instantiation
+template
+void GenieBucketer::serialize(boost::archive::binary_iarchive & ar, const unsigned int version);
+template
+void GenieBucketer::serialize(boost::archive::binary_oarchive & ar, const unsigned int version);
+template<>
+void GenieBucketer::serialize(boost::archive::text_iarchive & ar, const unsigned int version);
+template<>
+void GenieBucketer::serialize(boost::archive::text_oarchive & ar, const unsigned int version);
+

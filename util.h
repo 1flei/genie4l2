@@ -46,6 +46,6 @@ inline double calc_recall(
     int n = ground_truth.size();
     int res_idx = std::min(res.size(), ground_truth.size());
 
-    auto it = std::upper_bound(ground_truth.begin(), ground_truth.end(), res[res_idx - 1]+eps);
-    return std::distance(ground_truth.begin(), it) * 1. / n;
+    auto it = std::upper_bound(res.begin(), res.begin()+res_idx, ground_truth.back()+eps);
+    return std::distance(res.begin(), it) * 1. / n;
 }
