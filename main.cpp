@@ -158,6 +158,7 @@ int main(int argc, char **argv)
 
     if(fs.is_open()) {
         boost::archive::binary_iarchive ia(fs);
+        // boost::archive::text_iarchive ia(fs);
         ia & index;
     } else{
         index.build(data);
@@ -193,6 +194,7 @@ int main(int argc, char **argv)
     if(!fs.is_open()) {
         fs.open(indexFilename, ios_base::out);
         boost::archive::binary_oarchive oa(fs);
+        // boost::archive::text_oarchive oa(fs);
         oa & index;
     }
 

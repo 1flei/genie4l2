@@ -66,8 +66,8 @@ template
 void GenieBucketer::serialize(boost::archive::binary_iarchive & ar, const unsigned int version);
 template
 void GenieBucketer::serialize(boost::archive::binary_oarchive & ar, const unsigned int version);
-template<>
+template
 void GenieBucketer::serialize(boost::archive::text_iarchive & ar, const unsigned int version);
-template<>
+template
 void GenieBucketer::serialize(boost::archive::text_oarchive & ar, const unsigned int version);
 
