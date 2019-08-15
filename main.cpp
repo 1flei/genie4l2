@@ -153,15 +153,20 @@ int main(int argc, char **argv)
     cout << "finishing reading data, query and ground truth" << endl;
 
 
-    Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
+    // Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
+    GeniePivot<float> index(d, nLines, K, queryPerBatch, GPUID, data);
     std::fstream fs(indexFilename, ios_base::out | ios_base::in);
+
+    const auto& feu = [d](const float *a, const float* b){
+        return calc_l2_dist(d, a, b);
+    };
 
     if(fs.is_open()) {
         boost::archive::binary_iarchive ia(fs);
         // boost::archive::text_iarchive ia(fs);
         ia & index;
     } else{
-        index.build(data);
+        index.build(data, feu);
     }
     
     std::vector<std::vector<double> > ress(qn);
@@ -170,7 +175,7 @@ int main(int argc, char **argv)
         ress[qid].push_back(dist);
         // printf("%d, %d, %f\n", qid, candidateId, dist);
     };
-    index.query(queries, scanner);
+    index.query(queries, feu, scanner);
 
     double avg_recall = 0.;
     for(int i=0;i<ress.size();i++){

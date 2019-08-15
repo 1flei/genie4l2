@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "projection.h"
+#include "pivot_hasher.h"
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/shared_ptr.hpp>
 #include <boost/archive/binary_iarchive.hpp>
@@ -126,6 +127,85 @@ private:
     int GPUID;
 
     RandProjHasher<Scalar, int> hasher;
+    std::vector<std::vector<int> > hashSigs;
+
+    GenieBucketer bucketer;
+};
+
+template<class Scalar> 
+class GeniePivot
+{
+public:
+    GeniePivot(int dataDim, int nPivots, int topk, int queryPerBatch, int GPUID, const std::vector<std::vector<Scalar> >& dataset) 
+        :dataDim(dataDim), sigdim(nPivots), nPivots(nPivots), topk(topk), 
+        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, sigdim, nPivots, dataset), bucketer(3*topk+100, queryPerBatch, GPUID, sigdim)
+    {
+    }
+    ~GeniePivot()
+    {
+    }
+
+    //take some parameters by default std::vector
+    template<class F>
+    void build(const std::vector<std::vector<Scalar> >& dataObjects, const F& f)
+    {
+        //project first
+        get_sigs(dataObjects, hashSigs, f);
+        bucketer.build(hashSigs);
+    }
+
+    //F :: query-id -> candidate-id -> IO
+    template<class F, class Scanner>
+    void query(const std::vector<std::vector<Scalar> >& queries, const F& f, const Scanner& scanner)
+    {
+        std::vector<std::vector<int> > querySigs;
+        get_sigs(queries, querySigs, f);
+        auto candidatess = bucketer.batch_query(querySigs);
+        
+        assert(candidatess.size()==queries.size());
+        for(int i=0;i<candidatess.size();i++){
+            for(int idx:candidatess[i]){
+                scanner(i, idx);
+            }
+        }
+    }
+
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int version)
+    {
+        ar & dataDim;
+        ar & sigdim;
+        ar & nPivots;
+        ar & topk;
+        ar & queryPerBatch;
+        ar & GPUID;
+        ar & hasher;
+        ar & hashSigs;
+        ar & bucketer;
+    }
+
+private:
+    template<class F>
+    inline void get_sigs(const std::vector<std::vector<Scalar> >& objects, std::vector<std::vector<int> >& sigs, const F& f) 
+    {
+        sigs.resize(objects.size());
+        for(int i=0;i<objects.size();i++){
+            sigs[i].resize(nPivots);
+            hasher.getSig(&objects[i][0], &sigs[i][0], f);
+            for(int j=0;j<sigs[i].size();j++){
+                sigs[i][j] = sigs[i][j] & 0x7fff;
+            }
+        }
+    }
+
+    int dataDim;
+    int sigdim;
+    int nPivots;
+    int topk;
+    int queryPerBatch;
+    int GPUID;
+
+    PivotHasher<Scalar, int> hasher;
     std::vector<std::vector<int> > hashSigs;
 
     GenieBucketer bucketer;
