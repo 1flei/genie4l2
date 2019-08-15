@@ -137,7 +137,7 @@ class GeniePivot
 {
 public:
     GeniePivot(int dataDim, int nPivots, int topk, int queryPerBatch, int GPUID, const std::vector<std::vector<Scalar> >& dataset) 
-        :dataDim(dataDim), sigdim(nPivots), nPivots(nPivots), topk(topk), 
+        :dataDim(dataDim), sigdim(sqrt(nPivots)), nPivots(nPivots), topk(topk), 
         queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, sigdim, nPivots, dataset), bucketer(3*topk+100, queryPerBatch, GPUID, sigdim)
     {
     }

@@ -35,7 +35,7 @@ public:
     template<class F>
     std::vector<SigType> getSig(const Scalar *data, const F& f) const
     {
-        std::vector<SigType> ret(sigdim);
+        std::vector<SigType> ret(nPivots);
         getSig(data, &ret[0], f);
         return ret;
     }
@@ -48,21 +48,30 @@ public:
         for(int i=0;i<nPivots;i++){
             dists[i] = f(data, &pivots[i][0]);
         }
-
         std::vector<int> orders(nPivots);
         for(int i=0;i<nPivots;i++){
             orders[i] = i;
         }
-        std::sort(orders.begin(), orders.end(), [&](int a, int b){
-            return dists[a] < dists[b];
-        });
-        std::copy(orders.begin(), orders.begin()+sigdim, ret);
+        for(int i=0;;i++){
+            int start = i*sigdim;
+            int end = std::min((i+1)*sigdim, nPivots);
+            std::sort(orders.begin()+start, orders.begin()+end, [&](int a, int b){
+                return dists[a] < dists[b];
+            });
+
+            if(end==nPivots){
+                break;
+            }
+        }
+
+        std::copy(orders.begin(), orders.end(), ret);
     }
 
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
         ar & dim;
+        ar & sigdim;
         ar & nPivots;
         ar & pivots;
     }

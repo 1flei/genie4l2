@@ -39,7 +39,7 @@ std::vector<std::vector<int> > GenieBucketer::batch_query(const std::vector<std:
     for(int i=0;i<querySigs.size();i++){
         for(int j=0;j<topk;j++){
             int qidx = i*topk + j;
-            printf("%d, %d, count=%d\n", i, j, genieResult.second[qidx]);
+            // printf("%d, %d, count=%d\n", i, j, genieResult.second[qidx]);
             ret[i].push_back(genieResult.first[qidx]);
         }
     }
