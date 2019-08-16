@@ -54,6 +54,15 @@ public:
     int sigDim;
 };
 
+//default Euclidean scanner
+struct EuScanner
+{
+    void operator()(int qid, int candidateIdx)
+    {
+
+    }
+};
+
 template<class Scalar> 
 class Genie4l2
 {
@@ -80,13 +89,19 @@ public:
     void query(const std::vector<std::vector<Scalar> >& queries, const F& f)
     {
         std::vector<std::vector<int> > querySigs;
+
         get_sigs(queries, querySigs);
-        auto candidatess = bucketer.batch_query(querySigs);
-        
-        assert(candidatess.size()==queries.size());
-        for(int i=0;i<candidatess.size();i++){
-            for(int idx:candidatess[i]){
-                f(i, idx);
+        for(int i=0;i * queryPerBatch < queries.size(); i++) {
+            int start = i * queryPerBatch;
+            int end   = std::min<int>((i+1) * queryPerBatch, querySigs.size());
+            std::vector<std::vector<int> > querySigBatch(querySigs.begin() + start, querySigs.begin() + end);
+            auto candidatessBatch = bucketer.batch_query(querySigBatch);
+            assert(candidatessBatch.size() == querySigBatch.size());
+            
+            for(int i=0;i<candidatessBatch.size();i++){
+                for(int idx:candidatessBatch[i]){
+                    f(i + start, idx);
+                }
             }
         }
     }
@@ -159,13 +174,19 @@ public:
     void query(const std::vector<std::vector<Scalar> >& queries, const F& f, const Scanner& scanner)
     {
         std::vector<std::vector<int> > querySigs;
+
         get_sigs(queries, querySigs, f);
-        auto candidatess = bucketer.batch_query(querySigs);
-        
-        assert(candidatess.size()==queries.size());
-        for(int i=0;i<candidatess.size();i++){
-            for(int idx:candidatess[i]){
-                scanner(i, idx);
+        for(int i=0;i * queryPerBatch < queries.size(); i++) {
+            int start = i * queryPerBatch;
+            int end   = std::min<int>((i+1) * queryPerBatch, querySigs.size());
+            std::vector<std::vector<int> > querySigBatch(querySigs.begin() + start, querySigs.begin() + end);
+            auto candidatessBatch = bucketer.batch_query(querySigBatch);
+            assert(candidatessBatch.size() == querySigBatch.size());
+
+            for(int i=0;i<candidatessBatch.size();i++){
+                for(int idx:candidatessBatch[i]){
+                    scanner(i + start, idx);
+                }
             }
         }
     }
