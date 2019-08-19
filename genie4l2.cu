@@ -1,5 +1,6 @@
 #include "genie4l2.h"
 #include "genie/genie.h"
+#include "genie/utility/Logger.h"
 
 //let this cu files link all required cuda implementation
 
@@ -27,6 +28,34 @@ void GenieBucketer::build(const std::vector<std::vector<int> >& sigs)
 }
 
 
+namespace genie {
+    namespace table {
+        //the implementation of genie::table::InvertedTable::serialize
+        template <class Archive>
+        void InvertedTable::load(Archive &ar, const unsigned int )
+        {
+            ar >> inverted_index_;
+            ar >> posting_list_;
+            ar >> upperbounds_;
+            ar >> lowerbounds_;
+            ar >> num_of_rows_;
+            ar >> num_of_dimensions_;
+        }
+        
+        template <class Archive>
+        void InvertedTable::save(Archive &ar, const unsigned int ) const
+        {
+            ar << inverted_index_;
+            ar << posting_list_;
+            ar << upperbounds_;
+            ar << lowerbounds_;
+            ar << num_of_rows_;
+            ar << num_of_dimensions_;
+        }
+    }
+};
+
+
 std::vector<std::vector<int> > GenieBucketer::batch_query(const std::vector<std::vector<int> >& querySigs)
 {
     auto genieQuery = genie::BuildQuery(geniePolicy, querySigs);
@@ -39,7 +68,6 @@ std::vector<std::vector<int> > GenieBucketer::batch_query(const std::vector<std:
     for(int i=0;i<querySigs.size();i++){
         for(int j=0;j<topk;j++){
             int qidx = i*topk + j;
-            // printf("%d, %d, count=%d\n", i, j, genieResult.second[qidx]);
             ret[i].push_back(genieResult.first[qidx]);
         }
     }
@@ -49,7 +77,7 @@ std::vector<std::vector<int> > GenieBucketer::batch_query(const std::vector<std:
 
 
 template<class Archive>
-void GenieBucketer::serialize(Archive & ar, const unsigned int version)
+void GenieBucketer::serialize(Archive & ar, const unsigned int )
 {
     ar & topk;
     ar & queryPerBatch;

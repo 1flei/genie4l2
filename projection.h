@@ -56,7 +56,7 @@ public:
     }
 
     template<class Archive>
-    void serialize(Archive & ar, const unsigned int version)
+    void serialize(Archive & ar, const unsigned int )
     {
         ar & dim;
         ar & K;

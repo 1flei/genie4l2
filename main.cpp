@@ -8,6 +8,8 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 
+#include <fmt/format.h>
+
 using namespace std;
 using namespace boost::program_options;
 
@@ -20,7 +22,7 @@ int read_data_binary(						// read data/query set from disk
 {
 	FILE *fp = fopen(fname, "rb");
 	if (!fp) {
-		printf("Could not open %s\n", fname);
+        fmt::print("Could not open {}\n", fname);
 		return 1;
 	}
 
@@ -46,7 +48,7 @@ int read_ground_truth(				// read ground truth results from disk
 {
 	FILE *fp = fopen(fname, "r");
 	if (!fp) {
-		printf("Could not open %s\n", fname);
+        fmt::print("Could not open {}\n", fname);
 		return 1;
 	}
 
@@ -132,34 +134,30 @@ int main(int argc, char **argv)
 
 	if(datasetFilename!=""){
         if (read_data_binary(n, d, datasetFilename.c_str(), data) == 1) {
-            printf("Reading dataset error!\n");
+            fmt::print("Reading dataset error!\n");
             return 1;
         }
     }
 
     if(queryFilename!=""){
         if (read_data_binary(qn, d, queryFilename.c_str(), queries) == 1) {
-            printf("Reading query set error!\n");
+            fmt::print("Reading query set error!\n");
             return 1;
         }
     }
 
 	if(groundtruthFilename!=""){
 		if (read_ground_truth(qn, groundtruthFilename.c_str(), results) == 1) {
-			printf("Reading Truth Set Error!\n");
+            fmt::print("Reading Truth Set Error!\n");
 			return 1;
 		}
 	}
-    cout << "finishing reading data, query and ground truth" << endl;
+    fmt::print("finishing reading data, query and ground truth!\n");
 
 
     Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
     // GeniePivot<float> index(d, nLines, K, queryPerBatch, GPUID, data);
     std::fstream fs(indexFilename, ios_base::out | ios_base::in);
-
-    const auto& feu = [d](const float *a, const float* b){
-        return calc_l2_dist(d, a, b);
-    };
 
     if(fs.is_open()) {
         boost::archive::binary_iarchive ia(fs);
@@ -171,12 +169,15 @@ int main(int argc, char **argv)
     }
     
     std::vector<std::vector<double> > ress(qn);
-    const auto& scanner = [&](int qid, int candidateId){
-        double dist = calc_l2_dist(d, &data[candidateId][0], &queries[qid][0]);
-        ress[qid].push_back(dist);
-        // printf("%d, %d, %f\n", qid, candidateId, dist);
-    };
-    index.query(queries, scanner);
+    auto ress_pair = index.query_vec(queries, data);
+    fmt::print("query_vec finished, ress_pair.size()={}\n", ress_pair.size());
+    ress.resize(ress_pair.size());
+    for(int i=0;i<ress_pair.size();i++){
+        ress[i].resize(ress_pair[i].size());
+        for(int j=0;j<ress_pair[i].size();j++){
+            ress[i][j] = ress_pair[i][j].first;
+        }
+    }
     // index.query(queries, feu, scanner);
 
     double avg_recall = 0.;
@@ -189,13 +190,13 @@ int main(int argc, char **argv)
         std::sort(ress[i].begin(), ress[i].end());
         std::sort(gti.begin(), gti.end());
 
-        printf("res=%f, %f, gt=%f, %f\n", ress[i][K/2], ress[i][K-1], gti[K/2], gti[K-1]);
+        fmt::print("res={}, {}, gt={}, {}\n", ress[i][K/2], ress[i][K-1], gti[K/2], gti[K-1]);
 
         avg_recall += calc_recall(ress[i], gti);
     }
     avg_recall /= qn;
 
-    printf("avg-recall = %f\n", avg_recall);
+    fmt::print("avg-recall = {}\n", avg_recall);
 
 
     if(!fs.is_open()) {

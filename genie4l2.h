@@ -2,14 +2,20 @@
 
 #include <vector>
 #include <memory>
+#include <queue>
+
 #include "projection.h"
 #include "pivot_hasher.h"
+#include "util.h"
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/map.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+
+#include <cstdio>
 
 //pure declearation
 //to achieve better seperated compilation of cuda and c++
@@ -21,14 +27,6 @@ namespace genie
 	namespace table {struct InvertedTable;}
 }
 
-namespace boost {
-namespace archive {
-
-class polymorphic_iarchive;
-class polymorphic_oarchive;
-
-} // namespace archive
-} // namespace boost
 
 class GenieBucketer
 {
@@ -54,13 +52,61 @@ public:
     int sigDim;
 };
 
-//default Euclidean scanner
+template<class Scalar>
 struct EuScanner
 {
-    void operator()(int qid, int candidateIdx)
-    {
+    using ResPair = std::pair<Scalar, int>;
 
+    EuScanner(int dim, int topk, const std::vector<std::vector<Scalar> >& queryObjects, const std::vector<std::vector<Scalar> >& dataObjects):
+        dim(dim), topk(topk), queryObjects(queryObjects), dataObjects(dataObjects)
+    {
+        resQue.resize(queryObjects.size());
+        for(int i=0;i<resQue.size();i++){
+            resQue.reserve(topk);
+        }
     }
+
+    void operator()(int qid, int candidateId) {
+        assert(qid < queryObjects.size() && candidateId < dataObjects.size() && qid < resQue.size());
+
+        double dist = calc_l2_dist(dim, &queryObjects[qid][0], &dataObjects[candidateId][0]);
+        if(resQue[qid].size() < topk) {
+            resQue[qid].emplace(dist, candidateId);
+        } else {
+            const auto& p = resQue[qid].top();
+            if(p.first > dist) {
+                //meaning that current elem should be in the resHeap
+                resQue[qid].pop();
+                resQue[qid].emplace(dist, candidateId);
+            }
+        }
+    }
+
+    std::vector<std::priority_queue<ResPair> >& fetch_res()
+    {
+        return resQue;
+    }
+    std::vector<std::vector<ResPair> > fetch_res_vec()
+    {
+        std::vector<std::vector<ResPair> > ret(resQue.size());
+        for(int qid=0;qid<ret.size();qid++){
+            ret[qid].resize(resQue[qid].size());
+            int idx = resQue[qid].size()-1;
+            while(!resQue[qid].empty()){
+                ret[qid][idx] = resQue[qid].top();
+                resQue[qid].pop();
+                --idx;
+            }
+        }
+        return ret;
+    }
+
+    int dim;
+    int topk;
+    const std::vector<std::vector<Scalar> >& queryObjects;
+    const std::vector<std::vector<Scalar> >& dataObjects;
+    //max-heap
+    std::vector<std::priority_queue<ResPair> > resQue;
 };
 
 template<class Scalar> 
@@ -85,8 +131,8 @@ public:
     }
 
     //F :: query-id -> candidate-id -> IO
-    template<class F>
-    void query(const std::vector<std::vector<Scalar> >& queries, const F& f)
+    template<class Scanner>
+    void query(const std::vector<std::vector<Scalar> >& queries, Scanner& f)
     {
         std::vector<std::vector<int> > querySigs;
 
@@ -97,6 +143,8 @@ public:
             std::vector<std::vector<int> > querySigBatch(querySigs.begin() + start, querySigs.begin() + end);
             auto candidatessBatch = bucketer.batch_query(querySigBatch);
             assert(candidatessBatch.size() == querySigBatch.size());
+
+            printf("batch query done!!\n");
             
             for(int i=0;i<candidatessBatch.size();i++){
                 for(int idx:candidatessBatch[i]){
@@ -107,8 +155,20 @@ public:
     }
 
 
+    // default version, using EuScanner 
+    using ResPair = std::pair<Scalar, int>;
+    std::vector<std::vector<ResPair> > query_vec(
+        const std::vector<std::vector<Scalar> >& queries, 
+        const std::vector<std::vector<Scalar> >& dataObjects)
+    {
+        EuScanner<Scalar> scanner(dataDim, topk, queries, dataObjects);
+        query(queries, scanner);
+        return scanner.fetch_res_vec();
+    }
+
+
     template<class Archive>
-    void serialize(Archive & ar, const unsigned int version)
+    void serialize(Archive & ar, const unsigned int )
     {
         ar & dataDim;
         ar & nLines;
@@ -192,7 +252,7 @@ public:
     }
 
     template<class Archive>
-    void serialize(Archive & ar, const unsigned int version)
+    void serialize(Archive & ar, const unsigned int )
     {
         ar & dataDim;
         ar & sigdim;

@@ -23,9 +23,10 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
+find_package(fmt REQUIRED)
+
 
 AUX_SOURCE_DIRECTORY(. DIR_SRCS)
-ADD_EXECUTABLE(genie4l2 ${DIR_SRCS}
-              )
+ADD_EXECUTABLE(genie4l2 ${DIR_SRCS})
 
-TARGET_LINK_LIBRARIES( genie4l2 LINK_PUBLIC "${CMAKE_CURRENT_LIST_DIR}/genie-dev/build/lib/libgenie.a" ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES( genie4l2 LINK_PUBLIC "${CMAKE_CURRENT_LIST_DIR}/genie-dev/build/lib/libgenie.a" ${Boost_LIBRARIES} fmt::fmt)
