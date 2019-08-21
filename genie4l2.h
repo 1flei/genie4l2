@@ -66,7 +66,7 @@ struct EuScanner
         }
     }
 
-    void operator()(int qid, int candidateId) {
+    void push(int qid, int candidateId) {
         assert(qid < queryObjects.size() && candidateId < dataObjects.size() && qid < resQue.size());
 
         double dist = calc_l2_dist(dim, &queryObjects[qid][0], &dataObjects[candidateId][0]);
@@ -132,7 +132,7 @@ public:
 
     //F :: query-id -> candidate-id -> IO
     template<class Scanner>
-    void query(const std::vector<std::vector<Scalar> >& queries, Scanner& f)
+    void query(const std::vector<std::vector<Scalar> >& queries, const Scanner& f)
     {
         std::vector<std::vector<int> > querySigs;
 
@@ -162,10 +162,11 @@ public:
         const std::vector<std::vector<Scalar> >& dataObjects)
     {
         EuScanner<Scalar> scanner(dataDim, topk, queries, dataObjects);
-        query(queries, scanner);
+        query(queries, [&](int qid, int candidateId){
+            scanner.push(qid, candidateId);
+        });
         return scanner.fetch_res_vec();
     }
-
 
     template<class Archive>
     void serialize(Archive & ar, const unsigned int )
