@@ -3,6 +3,7 @@
 #include <string> 
 #include "projection.h"
 #include "genie4l2.h"
+#include "genie4l2_dist.h"
 #include "util.h"
 #include <fstream>
 #include <boost/archive/binary_iarchive.hpp>
@@ -155,7 +156,8 @@ int main(int argc, char **argv)
     fmt::print("finishing reading data, query and ground truth!\n");
 
 
-    Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
+    DistGenie4l2<float> index(d, nLines, r, K, queryPerBatch);
+    // Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
     // GeniePivot<float> index(d, nLines, K, queryPerBatch, GPUID, data);
     std::fstream fs(indexFilename, ios_base::out | ios_base::in);
 

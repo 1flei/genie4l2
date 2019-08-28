@@ -19,14 +19,18 @@ include_directories(
 
 find_package(CUDA 9.0 REQUIRED)
 find_package(Boost COMPONENTS system program_options serialization iostreams REQUIRED)
+find_package(MPI REQUIRED)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
 find_package(fmt REQUIRED)
 
-
-AUX_SOURCE_DIRECTORY(. DIR_SRCS)
-ADD_EXECUTABLE(genie4l2 ${DIR_SRCS})
+# AUX_SOURCE_DIRECTORY(. DIR_SRCS)
+ADD_EXECUTABLE(genie4l2 
+  "main.cpp" 
+  "genie4l2.cu"
+  "genie4l2_dist.cu"
+)
 
 TARGET_LINK_LIBRARIES( genie4l2 LINK_PUBLIC "${CMAKE_CURRENT_LIST_DIR}/genie-dev/build/lib/libgenie.a" ${Boost_LIBRARIES} fmt::fmt)

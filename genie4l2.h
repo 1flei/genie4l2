@@ -9,6 +9,7 @@
 #include "util.h"
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/unique_ptr.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -31,6 +32,7 @@ namespace genie
 class GenieBucketer
 {
 public:
+    GenieBucketer() {};
     GenieBucketer(int topk, int queryPerBatch, int GPUID, int sigDim);
 
     void build(const std::vector<std::vector<int> >& sigs);
