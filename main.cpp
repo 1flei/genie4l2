@@ -170,9 +170,14 @@ int main(int argc, char **argv)
         index.build(data);
     }
     
+    
     std::vector<std::vector<double> > ress(qn);
+    
+    MyTimer::pusht();
     auto ress_pair = index.query_vec(queries, data);
-    fmt::print("query_vec finished, ress_pair.size()={}\n", ress_pair.size());
+    double t = MyTimer::popt();
+    
+    fmt::print("query_vec finished, ress_pair.size()={}, time={}\n", ress_pair.size(), t);
     ress.resize(ress_pair.size());
     for(int i=0;i<ress_pair.size();i++){
         ress[i].resize(ress_pair[i].size());
@@ -192,7 +197,7 @@ int main(int argc, char **argv)
         std::sort(ress[i].begin(), ress[i].end());
         std::sort(gti.begin(), gti.end());
 
-        fmt::print("res={}, {}, gt={}, {}\n", ress[i][K/2], ress[i][K-1], gti[K/2], gti[K-1]);
+        // fmt::print("res={}, {}, gt={}, {}\n", ress[i][K/2], ress[i][K-1], gti[K/2], gti[K-1]);
 
         avg_recall += calc_recall(ress[i], gti);
     }

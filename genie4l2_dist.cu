@@ -43,6 +43,10 @@ void DistGenieBucketer::build(const std::vector<std::vector<std::vector<int> > >
         extents[i] += extents[i-1];
     }
 
+    for(int i=0;i<extents.size();i++){
+        printf("extents[%d]=%d\n", i, extents[i]);
+    }
+
     //build each bucketer
     for(int threadid=0;threadid<numGPUs;threadid++){
         pools.emplace_back([&sigs, threadid, this](){

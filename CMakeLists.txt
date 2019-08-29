@@ -10,6 +10,9 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-sign-compare")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+set(CMAKE_CUDA_FLAGS_DEBUG "-g")
+set(CMAKE_CUDA_FLAGS_RELEASE "-O3")
+
 set(CUDA_SEPARABLE_COMPILATION ON)
 
 include_directories(
