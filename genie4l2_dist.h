@@ -54,7 +54,7 @@ public:
     std::vector<int> extents;
     std::vector<GenieBucketer> bucketers;
 
-    std::vector<std::thread> pools;
+    // std::vector<std::thread> pools;
 };
 
 template<class Scalar> 

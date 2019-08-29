@@ -24,7 +24,8 @@ void DistGenieBucketer::build(const std::vector<std::vector<std::vector<int> > >
     assert(sigs.size()==numGPUs);
 
     //let each buckets build its own inv_table and so on.
-    pools.clear();
+    std::vector<std::thread> pools;
+    // pools.clear();
     pools.reserve(numGPUs);
 
     std::vector<std::vector<std::vector<int> > > sigsForThreads;
@@ -55,7 +56,8 @@ void DistGenieBucketer::build(const std::vector<std::vector<std::vector<int> > >
 
 std::vector<std::vector<int> > DistGenieBucketer::batch_query(const std::vector<std::vector<int> >& querySigs)
 {
-    pools.clear();
+    std::vector<std::thread> pools;
+    // pools.clear();
     pools.reserve(numGPUs);
 
     std::vector<std::vector<std::vector<int> > > candidates(numGPUs);
