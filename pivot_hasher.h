@@ -40,35 +40,43 @@ public:
         return ret;
     }
 
-    //f :: const Scalar * -> const Scalar * -> their distance
+    //f :: int -> const Scalar * -> const Scalar * -> their distance
     template<class F>
     void getSig(const Scalar *data, SigType* ret, const F& f) const
     {
         std::vector<double> dists(nPivots);
         for(int i=0;i<nPivots;i++){
-            dists[i] = f(data, &pivots[i][0]);
+            dists[i] = f(dim, data, &pivots[i][0]);
         }
         std::vector<int> orders(nPivots);
         for(int i=0;i<nPivots;i++){
             orders[i] = i;
         }
-        for(int i=0;;i++){
-            int start = i*sigdim;
-            int end = std::min((i+1)*sigdim, nPivots);
-            std::sort(orders.begin()+start, orders.begin()+end, [&](int a, int b){
-                return dists[a] < dists[b];
-            });
+        std::partial_sort(orders.begin(), orders.begin()+sigdim, orders.end(), [&](int a, int b){
+            return dists[a] < dists[b];
+        });
+        std::copy(orders.begin(), orders.begin()+sigdim, ret);
+        // for(int i=0;i<sigdim;i++){
+        //     printf("%d, %f\n", orders[i], dists[orders[i]]);
+        // }
 
-            if(end==nPivots){
-                break;
-            }
-        }
+        // for(int i=0;;i++){
+        //     int start = i*sigdim;
+        //     int end = std::min((i+1)*sigdim, nPivots);
+        //     std::sort(orders.begin()+start, orders.begin()+end, [&](int a, int b){
+        //         return dists[a] < dists[b];
+        //     });
 
-        std::copy(orders.begin(), orders.end(), ret);
+        //     if(end==nPivots){
+        //         break;
+        //     }
+        // }
+
+        // std::copy(orders.begin(), orders.end(), ret);
     }
 
     template<class Archive>
-    void serialize(Archive & ar, const unsigned int version)
+    void serialize(Archive & ar, const unsigned int )
     {
         ar & dim;
         ar & sigdim;

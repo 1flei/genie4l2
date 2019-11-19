@@ -35,13 +35,27 @@ public:
     }
 
     template<class Archive>
-    void serialize(Archive & ar, const unsigned int ) {
+    void serialize(Archive & ar, const unsigned int )
+    {
         ar & topk;
         ar & queryPerBatch;
         ar & sigDim;
         ar & numGPUs;
         ar & extents;
-        ar & bucketers;
+
+        
+        if(Archive::is_loading::value){
+            bucketers.clear();
+            bucketers.reserve(numGPUs);
+            for(int i=0;i<numGPUs;i++){
+                bucketers.emplace_back(topk, queryPerBatch, i, sigDim);
+                ar & bucketers[i];
+            }
+        } else{
+            for(int i=0;i<numGPUs;i++) {
+                ar & bucketers[i];
+            }
+        }
     }
 
     int get_num_gpus();
@@ -93,8 +107,6 @@ public:
             std::vector<std::vector<int> > querySigBatch(querySigs.begin() + start, querySigs.begin() + end);
             auto candidatessBatch = bucketer.batch_query(querySigBatch);
             assert(candidatessBatch.size() == querySigBatch.size());
-
-            printf("batch query done!!\n");
             
             for(int i=0;i<candidatessBatch.size();i++){
                 for(int idx:candidatessBatch[i]){
@@ -105,13 +117,13 @@ public:
     }
 
 
-    // default version, using EuScanner 
+    // default version, using DistFuncScanner 
     using ResPair = std::pair<Scalar, int>;
     std::vector<std::vector<ResPair> > query_vec(
         const std::vector<std::vector<Scalar> >& queries, 
         const std::vector<std::vector<Scalar> >& dataObjects)
     {
-        EuScanner<Scalar> scanner(dataDim, topk, queries, dataObjects);
+        DistFuncScanner<Scalar> scanner(dataDim, topk, queries, dataObjects);
         query(queries, [&](int qid, int candidateId){
             scanner.push(qid, candidateId);
         });

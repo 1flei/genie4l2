@@ -14,32 +14,125 @@ struct Result
 
 const static int MAXK = 100;
 
-// -----------------------------------------------------------------------------
-template <class ScalarType>
-ScalarType calc_l2_sqr(   // calc L2 square distance
-    int dim,              // dimension
-    const ScalarType *p1, // 1st point
-    const ScalarType *p2) // 2nd point
+template<class ScalarType>
+ScalarType sqr(ScalarType x)
 {
-    ScalarType diff(0);
-    ScalarType ret(0);
-    for (int i = 0; i < dim; ++i)
-    {
-        diff = p1[i] - p2[i];
-        ret += diff * diff;
+	return x*x;
+}
+
+//FProd :: ScalarType -> ScalarType -> ScalarType
+template<class ScalarType, class FProd, class FSum> 
+inline ScalarType fast_reduce(int dim, const ScalarType* x, const ScalarType* y, const FProd& fp, const FSum& fs)
+{
+    unsigned d = dim & ~unsigned(7);
+    const ScalarType *aa = x, *end_a = aa + d;
+    const ScalarType *bb = y, *end_b = bb + d;
+#ifdef __GNUC__
+    __builtin_prefetch(aa, 0, 3);
+    __builtin_prefetch(bb, 0, 0);
+#endif
+    ScalarType r = 0.0;
+    ScalarType r0, r1, r2, r3, r4, r5, r6, r7;
+
+    const ScalarType *a = end_a, *b = end_b;
+
+    r0 = r1 = r2 = r3 = r4 = r5 = r6 = r7 = 0.0;
+
+    switch (dim & 7) {
+        case 7: r6 = fp(a[6], b[6]);
+  		// fall through
+        case 6: r5 = fp(a[5], b[5]);
+  		// fall through
+        case 5: r4 = fp(a[4], b[4]);
+  		// fall through
+        case 4: r3 = fp(a[3], b[3]);
+  		// fall through
+        case 3: r2 = fp(a[2], b[2]);
+  		// fall through
+        case 2: r1 = fp(a[1], b[1]);
+  		// fall through
+        case 1: r0 = fp(a[0], b[0]);
     }
-    return ret;
+
+    a = aa; b = bb;
+	const auto fsum8 = [&](){
+		auto r01 = fs(r0, r1);
+		auto r23 = fs(r2, r3);
+		auto r45 = fs(r4, r5);
+		auto r67 = fs(r6, r7);
+		auto r0123 = fs(r01, r23);
+		auto r4567 = fs(r45, r67);
+		return fs(r0123, r4567);
+	};
+
+    for (; a < end_a; a += 8, b += 8) {
+#ifdef __GNUC__
+        __builtin_prefetch(a + 32, 0, 3);
+        __builtin_prefetch(b + 32, 0, 0);
+#endif
+		r = fs(r, fsum8() );
+		r0 = fp(a[0], b[0]);
+		r1 = fp(a[1], b[1]);
+		r2 = fp(a[2], b[2]);
+		r3 = fp(a[3], b[3]);
+		r4 = fp(a[4], b[4]);
+		r5 = fp(a[5], b[5]);
+		r6 = fp(a[6], b[6]);
+		r7 = fp(a[7], b[7]);
+    }
+
+    r = fs(r, fsum8() );
+    return r;
+}
+
+
+template<class ScalarType> 
+inline ScalarType calc_l2_sqr(int dim, const ScalarType* x, const ScalarType* y)
+{
+	const auto fProd = [](ScalarType a, ScalarType b){
+		return sqr(a-b);
+	};
+	const auto fSum = [](ScalarType a, ScalarType b){
+		return a+b;
+	};
+	return fast_reduce(dim, x, y, fProd, fSum);
+}
+
+
+template<class ScalarType> 
+inline ScalarType calc_l1_dist(int dim, const ScalarType* x, const ScalarType* y)
+{
+	const auto fProd = [](ScalarType a, ScalarType b){
+		return abs(a-b);
+	};
+	const auto fSum = [](ScalarType a, ScalarType b){
+		return a+b;
+	};
+	return fast_reduce(dim, x, y, fProd, fSum);
+}
+
+template<class ScalarType> 
+inline ScalarType calc_inner_product(int dim, const ScalarType* x, const ScalarType* y)
+{
+	const auto fProd = [](ScalarType a, ScalarType b){
+		return a*b;
+	};
+	const auto fSum = [](ScalarType a, ScalarType b){
+		return a+b;
+	};
+	return fast_reduce(dim, x, y, fProd, fSum);
 }
 
 // -----------------------------------------------------------------------------
-template <class ScalarType>
-ScalarType calc_l2_dist(  // calc L2 distance
-    int dim,              // dimension
-    const ScalarType *p1, // 1st point
-    const ScalarType *p2) // 2nd point
+template<class ScalarType>
+ScalarType calc_l2_dist(					// calc L2 distance
+	int   dim,							// dimension
+	const ScalarType *p1,					// 1st point
+	const ScalarType *p2)					// 2nd point
 {
-    return sqrt(calc_l2_sqr(dim, p1, p2));
+	return sqrt(calc_l2_sqr(dim, p1, p2));
 }
+
 
 inline double calc_recall(
     std::vector<double> &res,

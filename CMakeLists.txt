@@ -10,6 +10,7 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-sign-compare")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+# set(CMAKE_CUDA_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-sign-compare")
 set(CMAKE_CUDA_FLAGS_DEBUG "-g")
 set(CMAKE_CUDA_FLAGS_RELEASE "-O3")
 
@@ -30,10 +31,10 @@ endif()
 find_package(fmt REQUIRED)
 
 # AUX_SOURCE_DIRECTORY(. DIR_SRCS)
-ADD_EXECUTABLE(genie4l2 
+ADD_EXECUTABLE(genie_nn 
   "main.cpp" 
   "genie4l2.cu"
   "genie4l2_dist.cu"
 )
-
-TARGET_LINK_LIBRARIES( genie4l2 LINK_PUBLIC "${CMAKE_CURRENT_LIST_DIR}/genie-dev/build/lib/libgenie.a" ${Boost_LIBRARIES} fmt::fmt)
+add_library(genie4l2 STATIC "genie4l2.cu" "genie4l2_dist.cu")
+TARGET_LINK_LIBRARIES( genie_nn LINK_PUBLIC "${CMAKE_CURRENT_LIST_DIR}/genie-dev/build/lib/libgenie.a" ${Boost_LIBRARIES} fmt::fmt)

@@ -6,6 +6,7 @@
 
 std::shared_ptr<genie::ExecutionPolicy> GenieBucketer::get_genie_policy()
 {
+    genie::utility::Logger::set_level(genie::utility::Logger::NONE);
     genie::Config config = genie::Config()
         .SetK(topk)
         .SetNumOfQueries(queryPerBatch)
@@ -68,6 +69,8 @@ std::vector<std::vector<int> > GenieBucketer::batch_query(const std::vector<std:
     for(int i=0;i<querySigs.size();i++){
         for(int j=0;j<topk;j++){
             int qidx = i*topk + j;
+            // fmt::print("genieResult[{}]=({}, {})", qidx, genieResult.first[qidx][k], genieResult.second[qidx][k]);
+            // printf("genieResult[%d]=(%d, %d)\n", qidx, genieResult.first[qidx], genieResult.second[qidx]);
             ret[i].push_back(genieResult.first[qidx]);
         }
     }
@@ -85,6 +88,7 @@ void GenieBucketer::serialize(Archive & ar, const unsigned int )
     ar & sigDim;
     if(Archive::is_loading::value){
         geniePolicy = get_genie_policy();
+        cudaSetDevice(GPUID);
     }
     ar & invTable;
 }

@@ -17,6 +17,7 @@
 #include <boost/archive/text_oarchive.hpp>
 
 #include <cstdio>
+// #include <fmt/format.h>
 
 //pure declearation
 //to achieve better seperated compilation of cuda and c++
@@ -55,12 +56,18 @@ public:
 };
 
 template<class Scalar>
-struct EuScanner
+using Distf = std::function<Scalar(int, const Scalar*, const Scalar*)>;
+
+template<class Scalar>
+struct DistFuncScanner
 {
     using ResPair = std::pair<Scalar, int>;
 
-    EuScanner(int dim, int topk, const std::vector<std::vector<Scalar> >& queryObjects, const std::vector<std::vector<Scalar> >& dataObjects):
-        dim(dim), topk(topk), queryObjects(queryObjects), dataObjects(dataObjects)
+    DistFuncScanner(int dim, int topk, const std::vector<std::vector<Scalar> >& queryObjects, 
+            const std::vector<std::vector<Scalar> >& dataObjects, 
+            Distf<Scalar> distf_=calc_l2_dist<Scalar>):
+        dim(dim), topk(topk), queryObjects(queryObjects), dataObjects(dataObjects), 
+        distf(std::move(distf_) )
     {
         resQue.resize(queryObjects.size());
         for(int i=0;i<resQue.size();i++){
@@ -71,7 +78,7 @@ struct EuScanner
     void push(int qid, int candidateId) {
         assert(qid < queryObjects.size() && candidateId < dataObjects.size() && qid < resQue.size());
 
-        double dist = calc_l2_dist(dim, &queryObjects[qid][0], &dataObjects[candidateId][0]);
+        double dist = distf(dim, &queryObjects[qid][0], &dataObjects[candidateId][0]);
         if(resQue[qid].size() < topk) {
             resQue[qid].emplace(dist, candidateId);
         } else {
@@ -109,6 +116,7 @@ struct EuScanner
     const std::vector<std::vector<Scalar> >& dataObjects;
     //max-heap
     std::vector<std::priority_queue<ResPair> > resQue;
+    Distf<Scalar> distf;
 };
 
 template<class Scalar> 
@@ -117,7 +125,7 @@ class Genie4l2
 public:
     Genie4l2(int dataDim, int nLines, double radius, int topk, int queryPerBatch, int GPUID) 
         :dataDim(dataDim), nLines(nLines), radius(radius), topk(topk), 
-        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, nLines, radius), bucketer(3*topk+100, queryPerBatch, GPUID, nLines)
+        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, nLines, radius), bucketer(3*topk+3*nLines, queryPerBatch, GPUID, nLines)
     {
     }
     ~Genie4l2()
@@ -157,13 +165,13 @@ public:
     }
 
 
-    // default version, using EuScanner 
+    // default version, using DistFuncScanner 
     using ResPair = std::pair<Scalar, int>;
     std::vector<std::vector<ResPair> > query_vec(
         const std::vector<std::vector<Scalar> >& queries, 
         const std::vector<std::vector<Scalar> >& dataObjects)
     {
-        EuScanner<Scalar> scanner(dataDim, topk, queries, dataObjects);
+        DistFuncScanner<Scalar> scanner(dataDim, topk, queries, dataObjects);
         query(queries, [&](int qid, int candidateId){
             scanner.push(qid, candidateId);
         });
@@ -210,13 +218,19 @@ private:
     GenieBucketer bucketer;
 };
 
+
+
 template<class Scalar> 
 class GeniePivot
 {
 public:
-    GeniePivot(int dataDim, int nPivots, int topk, int queryPerBatch, int GPUID, const std::vector<std::vector<Scalar> >& dataset) 
+    GeniePivot(int dataDim, int nPivots, int topk, int queryPerBatch, int GPUID, 
+            const std::vector<std::vector<Scalar> >& dataset, 
+            Distf<Scalar> distf_=calc_l2_dist<Scalar>)
         :dataDim(dataDim), sigdim(sqrt(nPivots)), nPivots(nPivots), topk(topk), 
-        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, sigdim, nPivots, dataset), bucketer(3*topk+100, queryPerBatch, GPUID, sigdim)
+        queryPerBatch(queryPerBatch), GPUID(GPUID), hasher(dataDim, sigdim, nPivots, dataset), 
+        bucketer(3*topk+3*nPivots, queryPerBatch, GPUID, sqrt(nPivots)), 
+        distf(std::move(distf_))
     {
     }
     ~GeniePivot()
@@ -224,21 +238,20 @@ public:
     }
 
     //take some parameters by default std::vector
-    template<class F>
-    void build(const std::vector<std::vector<Scalar> >& dataObjects, const F& f)
+    void build(const std::vector<std::vector<Scalar> >& dataObjects)
     {
         //project first
-        get_sigs(dataObjects, hashSigs, f);
+        get_sigs(dataObjects, hashSigs);
         bucketer.build(hashSigs);
     }
 
     //F :: query-id -> candidate-id -> IO
-    template<class F, class Scanner>
-    void query(const std::vector<std::vector<Scalar> >& queries, const F& f, const Scanner& scanner)
+    template<class Scanner>
+    void query(const std::vector<std::vector<Scalar> >& queries, const Scanner& scanner)
     {
         std::vector<std::vector<int> > querySigs;
 
-        get_sigs(queries, querySigs, f);
+        get_sigs(queries, querySigs);
         for(int i=0;i * queryPerBatch < queries.size(); i++) {
             int start = i * queryPerBatch;
             int end   = std::min<int>((i+1) * queryPerBatch, querySigs.size());
@@ -252,6 +265,19 @@ public:
                 }
             }
         }
+    }
+
+    // default version, using DistFuncScanner 
+    using ResPair = std::pair<Scalar, int>;
+    std::vector<std::vector<ResPair> > query_vec(
+        const std::vector<std::vector<Scalar> >& queries, 
+        const std::vector<std::vector<Scalar> >& dataObjects)
+    {
+        DistFuncScanner<Scalar> scanner(dataDim, topk, queries, dataObjects, distf);
+        query(queries, [&](int qid, int candidateId){
+            scanner.push(qid, candidateId);
+        });
+        return scanner.fetch_res_vec();
     }
 
     template<class Archive>
@@ -269,13 +295,12 @@ public:
     }
 
 private:
-    template<class F>
-    inline void get_sigs(const std::vector<std::vector<Scalar> >& objects, std::vector<std::vector<int> >& sigs, const F& f) 
+    inline void get_sigs(const std::vector<std::vector<Scalar> >& objects, std::vector<std::vector<int> >& sigs) 
     {
         sigs.resize(objects.size());
         for(int i=0;i<objects.size();i++){
-            sigs[i].resize(nPivots);
-            hasher.getSig(&objects[i][0], &sigs[i][0], f);
+            sigs[i].resize(sigdim);
+            hasher.getSig(&objects[i][0], &sigs[i][0], distf);
             for(int j=0;j<sigs[i].size();j++){
                 sigs[i][j] = sigs[i][j] & 0x7fff;
             }
@@ -293,4 +318,5 @@ private:
     std::vector<std::vector<int> > hashSigs;
 
     GenieBucketer bucketer;
+    Distf<Scalar> distf;
 };

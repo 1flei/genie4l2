@@ -50,6 +50,7 @@ void DistGenieBucketer::build(const std::vector<std::vector<std::vector<int> > >
     //build each bucketer
     for(int threadid=0;threadid<numGPUs;threadid++){
         pools.emplace_back([&sigs, threadid, this](){
+            cudaSetDevice(threadid);
             bucketers[threadid].build(sigs[threadid]);
         });
     }
@@ -69,6 +70,7 @@ std::vector<std::vector<int> > DistGenieBucketer::batch_query(const std::vector<
     //query each bucketer
     for(int threadid=0;threadid<numGPUs;threadid++){
         pools.emplace_back([&candidates, &querySigs, threadid, this](){
+            // cudaSetDevice(threadid);
             auto ret = bucketers[threadid].batch_query(querySigs);
             candidates[threadid] = std::move(ret);
         });

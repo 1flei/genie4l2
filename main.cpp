@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
         ("nLines,L", value(&nLines)->required(), "#projection lines")
         ("r,r", value(&r)->required(), "projection radius")
-        ("K,k", value(&K)->required(), "k for top-k")
+        ("k,k", value(&K)->required(), "k for top-k")
 
         ("queryPerBatch,b", value(&queryPerBatch)->required(), "#query per batch")
 
@@ -156,9 +156,9 @@ int main(int argc, char **argv)
     fmt::print("finishing reading data, query and ground truth!\n");
 
 
-    DistGenie4l2<float> index(d, nLines, r, K, queryPerBatch);
+    // DistGenie4l2<float> index(d, nLines, r, K, queryPerBatch);
     // Genie4l2<float> index(d, nLines, r, K, queryPerBatch, GPUID);
-    // GeniePivot<float> index(d, nLines, K, queryPerBatch, GPUID, data);
+    GeniePivot<float> index(d, nLines, K, queryPerBatch, GPUID, data);
     std::fstream fs(indexFilename, ios_base::out | ios_base::in);
 
     if(fs.is_open()) {
@@ -166,7 +166,6 @@ int main(int argc, char **argv)
         // boost::archive::text_iarchive ia(fs);
         ia & index;
     } else{
-        // index.build(data, feu);
         index.build(data);
     }
     
